@@ -57,36 +57,48 @@ export function useImageToVideo() {
 
 				// Step 3: Encode using mediabunny
 				// Import dynamically to avoid SSR issues
-				const mediabunny = await import("mediabunny");
-				const { Output, CanvasSource } = mediabunny;
+				const {
+					Output,
+					CanvasSource,
+					BufferTarget,
+					Mp4OutputFormat,
+					WebMOutputFormat,
+					QUALITY_HIGH,
+				} = await import("mediabunny");
 
-				const format =
+				const outputFormat =
 					request.output.format === "webm"
-						? new mediabunny.WebMOutputFormat()
-						: new mediabunny.Mp4OutputFormat();
+						? new WebMOutputFormat()
+						: new Mp4OutputFormat();
 
-				const output = new Output(format);
+				const output = new Output({
+					format: outputFormat,
+					target: new BufferTarget(),
+				});
 
 				const canvasSource = new CanvasSource(
 					renderLoop.canvas as OffscreenCanvas,
 					{
-						codec:
-							request.output.format === "webm"
-								? mediabunny.VideoCodec.VP9
-								: mediabunny.VideoCodec.AVC,
-						fps: request.output.fps,
+						codec: request.output.format === "webm" ? "vp9" : "avc",
+						bitrate: QUALITY_HIGH,
 					},
 				);
 
-				output.addVideoTrack(canvasSource);
+				output.addVideoTrack(canvasSource, {
+					frameRate: request.output.fps,
+				});
+
+				await output.start();
 
 				for (let frame = 0; frame < renderLoop.totalFrames; frame++) {
 					if (cancelRef.current) {
+						await output.cancel();
 						return { success: false, error: "Cancelled" };
 					}
 
+					const time = frame / request.output.fps;
 					renderLoop.renderFrame(frame);
-					await canvasSource.addFrame();
+					await canvasSource.add(time, 1 / request.output.fps);
 
 					setProgress({
 						phase: "rendering",
@@ -95,6 +107,8 @@ export function useImageToVideo() {
 						totalFrames: renderLoop.totalFrames,
 					});
 				}
+
+				canvasSource.close();
 
 				setProgress({ phase: "encoding", progress: 0.9 });
 				const result = await output.finalize();
