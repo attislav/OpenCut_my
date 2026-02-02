@@ -31,4 +31,20 @@ const webEnvSchema = z.object({
 
 export type WebEnv = z.infer<typeof webEnvSchema>;
 
-export const webEnv = webEnvSchema.parse(process.env);
+// Lazy-parse: only validate when a property is actually accessed at runtime.
+// This prevents the build from failing when env vars are not yet available
+// (e.g. during static page generation on Vercel).
+let _cachedEnv: WebEnv | null = null;
+
+function getEnv(): WebEnv {
+	if (!_cachedEnv) {
+		_cachedEnv = webEnvSchema.parse(process.env);
+	}
+	return _cachedEnv;
+}
+
+export const webEnv: WebEnv = new Proxy({} as WebEnv, {
+	get(_, prop: string) {
+		return getEnv()[prop as keyof WebEnv];
+	},
+});

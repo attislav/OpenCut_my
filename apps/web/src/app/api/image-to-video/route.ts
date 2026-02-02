@@ -1,4 +1,3 @@
-import { checkRateLimit } from "@/lib/rate-limit";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -121,12 +120,18 @@ interface TimelineSlide {
  */
 export async function POST(request: NextRequest) {
 	try {
-		const { limited } = await checkRateLimit({ request });
-		if (limited) {
-			return NextResponse.json(
-				{ error: "Too many requests" },
-				{ status: 429 },
-			);
+		// Rate limiting is optional — skip if Redis is not configured
+		try {
+			const { checkRateLimit } = await import("@/lib/rate-limit");
+			const { limited } = await checkRateLimit({ request });
+			if (limited) {
+				return NextResponse.json(
+					{ error: "Too many requests" },
+					{ status: 429 },
+				);
+			}
+		} catch {
+			// Rate limiting unavailable (e.g. missing Redis config) — continue without it
 		}
 
 		const body = await request.json();

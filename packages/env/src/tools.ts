@@ -26,4 +26,17 @@ const toolsEnvSchema = z.object({
 
 export type ToolsEnv = z.infer<typeof toolsEnvSchema>;
 
-export const toolsEnv = toolsEnvSchema.parse(process.env);
+let _cachedEnv: ToolsEnv | null = null;
+
+function getEnv(): ToolsEnv {
+	if (!_cachedEnv) {
+		_cachedEnv = toolsEnvSchema.parse(process.env);
+	}
+	return _cachedEnv;
+}
+
+export const toolsEnv: ToolsEnv = new Proxy({} as ToolsEnv, {
+	get(_, prop: string) {
+		return getEnv()[prop as keyof ToolsEnv];
+	},
+});
