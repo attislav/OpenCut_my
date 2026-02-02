@@ -29,6 +29,10 @@ export function Header() {
 			label: "Blog",
 			href: "/blog",
 		},
+		{
+			label: "Slideshow",
+			href: "/slideshow",
+		},
 	];
 
 	return (
