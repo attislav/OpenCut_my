@@ -111,13 +111,18 @@ export function useImageToVideo() {
 				canvasSource.close();
 
 				setProgress({ phase: "encoding", progress: 0.9 });
-				const result = await output.finalize();
+				await output.finalize();
+
+				const buffer = output.target.buffer;
+				if (!buffer) {
+					return { success: false, error: "Export failed: no output buffer" };
+				}
 
 				setProgress({ phase: "encoding", progress: 1 });
 
 				return {
 					success: true,
-					data: result,
+					data: buffer,
 					mimeType:
 						request.output.format === "webm" ? "video/webm" : "video/mp4",
 					duration: metadata.totalDuration,
